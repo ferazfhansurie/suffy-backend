@@ -2,10 +2,16 @@
 
 import type { MedusaRequest, MedusaResponse } from "@medusajs/medusa";
 import { CustomerService } from "@medusajs/medusa";
+import { EntityManager } from "typeorm";
+import { Customer } from "@medusajs/medusa";
+
 
 export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   try {
+    
     const { customerId, pointsToDeduct } = req.body;
+    const manager: EntityManager = req.scope.resolve("manager");
+    const customerRepository = manager.getRepository(Customer);
     const customerService: CustomerService = req.scope.resolve("customerService");
 
     const customer = await customerService.retrieve(customerId);
@@ -15,7 +21,10 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
 
     // Update customer's LoyaltyPoints
     const updatedLoyaltyPoints = Math.max(customer.loyaltyPoints - pointsToDeduct, 0); // Ensure it doesn't go below 0
-    await customerService.update(customerId, { loyaltyPoints: updatedLoyaltyPoints });
+    if (customer) {
+      customer.loyaltyPoints = updatedLoyaltyPoints;
+      await customerRepository.save(customer);
+    }
 
     res.status(200).json({ message: 'Customer updated successfully' });
   } catch (error) {
